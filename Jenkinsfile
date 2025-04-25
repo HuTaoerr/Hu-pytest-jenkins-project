@@ -31,8 +31,8 @@ pipeline {
                 }
             }
             steps {
-                echo "Running inside Python container: $(sh(script: 'python --version', returnStdout: true).trim())"
-                echo "Working directory: $(pwd)" // 显示当前工作目录
+                echo "Running inside Python container: ${sh(script: 'python --version', returnStdout: true).trim()}"
+                echo "Working directory: ${sh(script: 'pwd', returnStdout: true).trim()}" // 显示当前工作目录
 
                 // 步骤 2.1: 安装依赖
                 echo "Installing dependencies..."
