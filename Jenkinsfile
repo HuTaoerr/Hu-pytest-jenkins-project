@@ -17,6 +17,7 @@ pipeline {
         stage('Setup Environment') {
             steps {
                 echo "Setting up Python environment..."
+                sh 'apt-get update && apt-get install -y python'
                 sh 'python3 -m venv venv_jenkins'
                 sh '. venv_jenkins/bin/activate && pip install --upgrade pip'
                 sh '. venv_jenkins/bin/activate && pip install -r requirements.txt'
