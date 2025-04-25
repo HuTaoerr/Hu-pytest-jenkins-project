@@ -75,8 +75,7 @@ pipeline {
             catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
                 echo 'Attempting to publish Allure report...'
                 allure(
-                    results: ['allure-results'], // 指向 pytest 生成的结果目录
-                    tool: 'Default Allure'       // 确保这个名字与 Jenkins Tools 配置匹配
+                    results: ['allure-results'] // 指向 pytest 生成的结果目录
                 )
             }
 
