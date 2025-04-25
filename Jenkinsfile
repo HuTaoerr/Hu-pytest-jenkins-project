@@ -17,7 +17,14 @@ pipeline {
         stage('Setup Environment') {
             steps {
                 echo "Setting up Python environment..."
-                sh 'apt-get update && apt-get install -y python'
+                echo "Updating package lists and installing Python 3..."
+                // 在 apt-get 命令前加上 sudo
+                sh 'sudo apt-get update && sudo apt-get install -y python3 python3-pip python3-venv'
+
+                // 验证安装 (可选，但有助于调试)
+                sh 'python3 --version'
+                sh 'pip3 --version'
+
                 sh 'python3 -m venv venv_jenkins'
                 sh '. venv_jenkins/bin/activate && pip install --upgrade pip'
                 sh '. venv_jenkins/bin/activate && pip install -r requirements.txt'
