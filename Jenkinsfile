@@ -1,51 +1,46 @@
+// Jenkinsfile
 pipeline {
-    // 指定整个 Pipeline 使用一个包含 Python 的 Docker 镜像作为执行环境
-    agent {
-        docker {
-            image 'python:3.9-slim' // 使用官方 Python 3.9 slim 镜像，体积较小
-            // 你可以根据需要选择其他 Python 版本，如 'python:3.10' 或 'python:3.11-slim'
-            // slim 版本通常不包含很多系统工具，但 apt-get 通常可用（基于 Debian）
-            // 如果需要特定系统库，可能需要构建自己的 Docker 镜像或使用更完整的 Python 镜像
-            args '-u root --entrypoint=' // 可选：有时需要以 root 运行容器内的命令，特别是如果需要 apt-get install 其他库
-                                        // --entrypoint='' 覆盖默认 entrypoint，允许直接运行 sh
-        }
-    }
+    // 1. 修改：将顶层 agent 改回 any
+    agent any
 
-    environment {
-         // 可以定义环境变量，如果需要的话
-    }
+    // 2. 移除：删除空的 environment 块
 
     stages {
         stage('Checkout') {
+            // 这个阶段会在默认 agent (Jenkins master 或配置的静态 agent) 上执行
             steps {
                 echo 'Checking out code from GitHub...'
-                // checkout scm 会自动在指定的 agent (Docker 容器) 内的工作区执行
                 checkout scm
             }
         }
 
-        stage('Setup Dependencies') { // 修改阶段名称
+        // 3. 修改：为需要 Python 的 Stage 单独指定 Docker Agent
+        stage('Setup Dependencies') {
+            agent {
+                docker {
+                    image 'python:3.9-slim'
+                    // args '-u root --entrypoint=' // 如果需要 root 或遇到问题再取消注释
+                }
+            }
             steps {
-                echo "Python environment provided by agent. Installing dependencies..."
-
-                // --- 现在 Python 3 和 pip 已经由 agent 提供了 ---
-                // --- 不需要再 apt-get install python3 ---
-
-                // 更新 pip 并安装依赖
+                echo "Installing dependencies inside Python container..."
+                // 在 Docker Agent 容器内执行
                 sh 'pip install --upgrade pip'
                 sh 'pip install -r requirements.txt'
-
-                // （可选）如果 Python 镜像是 slim 版本，可能缺少某些系统库
-                // 如果 pip install 报缺少编译环境等错误，可能需要先安装
-                // sh 'apt-get update && apt-get install -y build-essential gcc ...' // 示例
             }
         }
 
+        // 4. 修改：为需要 Python 的 Stage 单独指定 Docker Agent
         stage('Run Tests with Allure') {
+            agent {
+                docker {
+                    image 'python:3.9-slim' // 使用与上一个 stage 相同的镜像确保环境一致
+                    // args '-u root --entrypoint='
+                }
+            }
             steps {
-                echo 'Running Pytest with Allure results...'
-                // 直接运行 pytest，因为它已经在 agent 环境的 PATH 中
-                // 注意：这里不再需要激活虚拟环境，因为整个容器环境就是隔离的
+                echo 'Running Pytest with Allure results inside Python container...'
+                // 在 Docker Agent 容器内执行
                 sh 'pytest --alluredir=allure-results --junitxml=report.xml'
             }
         }
@@ -54,10 +49,10 @@ pipeline {
     post {
         always {
             echo 'Pipeline finished. Publishing reports...'
-            // Allure 和 JUnit 报告步骤保持不变
+            // 5. 修改：将 installation 改为 tool
             allure(
                 results: ['allure-results'],
-                installation: 'Default Allure' // 确保这个名字匹配 Jenkins Tools 配置
+                tool: 'Default Allure' // 使用 'tool' 参数指定名称
             )
             junit 'report.xml'
         }
@@ -69,7 +64,6 @@ pipeline {
         }
     }
 }
-
 
 
 
