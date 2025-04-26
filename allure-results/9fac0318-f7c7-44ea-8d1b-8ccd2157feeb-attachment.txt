@@ -1,2 +1,0 @@
-
-[Thread: MainThread] Running test_get_specific_post with post_id=1

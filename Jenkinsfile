@@ -63,7 +63,10 @@ pipeline {
 
             // 清理工作区（可选，会清理宿主机的 Workspace，包括 allure-results）
             // 如果你希望构建历史保留报告，可能需要小心 cleanWs() 的位置或使用 archiveArtifacts
-            // cleanWs()
+
+            // 在所有后置操作完成后清理工作区
+            echo 'Pipeline finished. Performing cleanup...'
+            cleanWs()
         }
         success {
             echo 'Pipeline succeeded!'
