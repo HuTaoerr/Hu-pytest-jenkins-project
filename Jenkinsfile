@@ -18,7 +18,7 @@ pipeline {
                     image 'python:3.9-slim'
                     // 使用当前 Jenkins Workspace 作为容器内的工作目录，这是默认且推荐的
                     // 确保容器内的用户对这个目录有写权限
-                    // args '-u root' // 如果非root用户写权限有问题，可以尝试以root运行
+                    args '-u root --entrypoint=' // 如果后续步骤需要 root 权限或遇到问题再尝试
                 }
             }
             steps {
@@ -32,7 +32,6 @@ pipeline {
 
                 // 步骤 2.2: 运行 Pytest 测试并只生成 Allure 结果
                 echo 'Running Pytest with Allure results only...'
-                // 移除 --junitxml 参数
                 sh 'pytest --alluredir=allure-results'
 
                 // 步骤 2.3: (调试用) 检查 allure-results 是否生成在容器内
@@ -54,15 +53,10 @@ pipeline {
             catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
                 echo 'Attempting to publish Allure report...'
                 allure(
-                    results: ['allure-results'] // 指向 pytest 生成的结果目录 (相对于 Workspace)
+                    results: [[path: 'allure-results']] // 指向 pytest 生成的结果目录 (相对于 Workspace)
                 )
             }
 
-            // 移除 JUnit 报告发布步骤
-            // catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-            //      echo 'Attempting to publish JUnit report...'
-            //     junit 'report.xml' // 指向 pytest 生成的 xml 文件
-            // }
 
             // 清理工作区（可选，会清理宿主机的 Workspace，包括 allure-results）
             // 如果你希望构建历史保留报告，可能需要小心 cleanWs() 的位置或使用 archiveArtifacts
