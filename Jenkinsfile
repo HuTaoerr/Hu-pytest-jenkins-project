@@ -53,7 +53,8 @@ pipeline {
             catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
                 echo 'Attempting to publish Allure report...'
                 allure(
-                    results: [[path: 'allure-results']] // 指向 pytest 生成的结果目录 (相对于 Workspace)
+                    results: [[path: 'allure-results']], // 指向 pytest 生成的结果目录 (相对于 Workspace)
+                    reportBuildPolicy: 'ALWAYS', // 总是生成报告
                 )
             }
 

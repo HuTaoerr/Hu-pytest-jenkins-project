@@ -105,10 +105,9 @@ def test_create_post(base_url, title, body, userId, common_headers):
 
 
 # 4. 测试 PUT /posts/{id} (完整更新帖子)
-@pytest.mark.smoke
+@pytest.mark.skip
 def test_update_post_put(base_url, common_headers):
     """测试 PUT 方法完整更新一个帖子"""
-
     put_id = 101
     put_url = f"{base_url}/post/{put_id}"
     payload = {

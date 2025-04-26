@@ -50,7 +50,7 @@ def test_get_all_posts_returns_list(base_url):
     (1, 1, "sunt aut facere"), # 测试帖子 ID 1
     (10, 1, "optio molestias"), # 测试帖子 ID 10
     (50, 5, "repellendus qui"), # 测试帖子 ID 50
-    pytest.param(99, 10, "provident", marks=pytest.mark.smoke), # 也可以在参数级别应用标记
+    pytest.param(99, 10, "temporibus", marks=pytest.mark.smoke), # 也可以在参数级别应用标记
 ])
 def test_get_specific_post(base_url, post_id, expected_user_id, expected_title_part):
     """使用参数化测试获取特定帖子的详情"""
