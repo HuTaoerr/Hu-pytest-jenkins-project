@@ -1,89 +1,78 @@
 pipeline {
-    // 使用您在 Jenkins UI Docker Template 中设置的标签
-    agent { label 'python-allure-agent' }
-
-    options {
-        // 根据需要保留 skipDefaultCheckout true 和手动 checkout
-        // 如果您希望 cleanWs 发生在 checkout 之前，保留这两项
-        skipDefaultCheckout true
-        // 其他 options...
-    }
+    agent any
 
     environment {
-        ALLURE_RESULTS_DIR = 'allure-results'
+        // 设置 Python 和 Allure 的版本
+        PYTHON_VERSION = '3.9-slim'
+        ALLURE_VERSION = '2.19.0'
     }
 
     stages {
-        // Clean Workspace stage (推荐保留)
-        stage('Clean Workspace') {
+        stage('Checkout') {
             steps {
-                echo 'Cleaning workspace before starting...'
-                cleanWs()
-            }
-        }
-
-        // Checkout Code stage (如果您使用了 skipDefaultCheckout true)
-        stage('Checkout Code') {
-            steps {
-                echo 'Checking out code after cleaning...'
+                echo 'Checking out code from GitHub...'
                 checkout scm
             }
         }
 
-        // Build and Test stage (现在将在顶层 agent 上运行)
-        stage('Build and Test') {
-            // 移除 agent { docker {...} } 块
+        stage('Install Dependencies') {
             steps {
-                // 这些步骤现在将在您的自定义 Docker Agent 容器中执行
-                echo "Running on custom agent: ${sh(script: 'hostname', returnStdout: true).trim()}"
-                echo "Working directory: ${sh(script: 'pwd', returnStdout: true).trim()}" // 应该显示 Remote File System Root 下的 Job 目录
-
-                echo "Setting up Python environment and installing dependencies..."
-                // 使用 venv 并安装依赖（您的自定义镜像已包含 Python/Pip/Venv）
-                sh '''
-                    python3 -m venv venv
-                    venv/bin/pip install --no-cache-dir -r requirements.txt
-                '''
-
-                echo 'Running Pytest with Allure results only...'
-                // 运行 Pytest 并生成 Allure 结果
-                sh "venv/bin/pytest tests/ --alluredir=${ALLURE_RESULTS_DIR}"
-
-                // Debug: Check results directory (在自定义 Agent 的 Workspace 中)
-                echo "Checking if ${ALLURE_RESULTS_DIR} directory exists on agent..."
-                sh "if [ -d ${ALLURE_RESULTS_DIR} ]; then echo '${ALLURE_RESULTS_DIR} directory found:'; ls -la ${ALLURE_RESULTS_DIR}/; else echo '${ALLURE_RESULTS_DIR} directory NOT found!'; fi"
-
-                // **移除 stash 步骤**，因为 post 块在同一个 Agent 上运行
-                // stash ...
+                script {
+                    // 安装 Python 和相关工具
+                    sh '''
+                        apt-get update
+                        apt-get install -y python3 python3-pip wget unzip openjdk-11-jre-headless
+                        python3 -m pip install --upgrade pip
+                        python3 -m pip install pytest allure-pytest
+                    '''
+                }
             }
         }
 
-        // 其他 stages...
+        stage('Run Tests') {
+            steps {
+                script {
+                    // 运行 Pytest 并生成 Allure 结果
+                    sh '''
+                        python3 -m pytest --alluredir=allure-results
+                    '''
+                }
+            }
+        }
+
+        stage('Generate Allure Report') {
+            steps {
+                script {
+                    // 安装 Allure 命令行工具
+                    sh '''
+                        wget https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/${env.ALLURE_VERSION}/allure-commandline-${env.ALLURE_VERSION}-bin.zip -O /tmp/allure.zip
+                        unzip /tmp/allure.zip -d /opt/
+                        ln -s /opt/allure-${env.ALLURE_VERSION}/bin/allure /usr/bin/allure
+                        rm /tmp/allure.zip
+                    '''
+                    // 生成 Allure 报告
+                    sh '''
+                        allure generate allure-results -o allure-report
+                    '''
+                }
+            }
+        }
     }
 
-    // Post Actions (现在将在顶层 agent 上执行)
     post {
         always {
-            echo 'Pipeline finished. Publishing Allure report...'
+            echo 'Pipeline finished. Attempting to publish Allure report...'
 
-            // **移除 unstash 步骤**
-            // try { unstash ... } catch {...}
+            // 发布 Allure 报告
+            allure(
+                results: [[path: 'allure-results']],
+                reportBuildPolicy: 'ALWAYS',
+                includeProperties: false,
+                jdk: ''
+            )
 
-            // Publish Allure report (在同一个 Agent 的 Workspace 中查找结果)
-            catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                echo 'Attempting to publish Allure report...'
-                // Allure step 现在可以直接访问 Workspace/${ALLURE_RESULTS_DIR}
-                allure(
-                    results: [[path: env.ALLURE_RESULTS_DIR]] // 正确的语法
-                    // 其他参数...
-                )
-            }
-
+            // 清理工作区（可选）
+            // cleanWs()
         }
-        // 其他 post conditions...
-        success { echo 'Pipeline succeeded!' }
-        failure { echo 'Pipeline failed!' }
-        unstable { echo 'Pipeline is unstable!' }
-        aborted { echo 'Pipeline was aborted!' }
     }
 }
