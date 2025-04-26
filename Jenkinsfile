@@ -29,8 +29,12 @@ pipeline {
                 echo "Running inside Python container: ${sh(script: 'python --version', returnStdout: true).trim()}"
                 echo "Working directory inside container: ${sh(script: 'pwd', returnStdout: true).trim()}" // 显示当前工作目录 (容器内)
 
+                sh 'echo "Listing files after Checkout:"'
+                sh 'ls -la'
+                sh 'pwd' // 这个 pwd 会显示容器内当前的工作目录，即 Workspace 挂载点
                 // 清理工作区中的 allure-results 和 allure-report 目录，新增
                 sh 'rm -rf allure-results allure-report'
+
 
 
                 echo "Installing dependencies..."
