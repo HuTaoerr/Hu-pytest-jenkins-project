@@ -3,8 +3,8 @@ git commit -m "update"
 git push origin master
 
 
-docker stop myjenkins
-docker rm myjenkins
+docker stop jenkins
+docker rm jenkins
 
 #docker run \
 #  -d \
