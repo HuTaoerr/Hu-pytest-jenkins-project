@@ -31,6 +31,26 @@ RUN echo \
 # 注意：我们只安装 docker-ce-cli，不需要完整的 docker-ce (引擎)
 RUN apt-get update && apt-get install -y docker-ce-cli
 
+# 3. 安装 Allure Commandline Tool
+# 从 Allure GitHub Release 下载最新版本
+# 请检查 Allure 的最新版本，并替换下面的 URL
+# 例如：https://github.com/allure-framework/allure-commandline/releases/download/2.24.1/allure-2.24.1.zip
+# 使用 wget 或 curl 下载 zip 包，并解压到 /opt/allure
+# 建议使用 zip 包，因为更常见且跨平台
+ARG ALLURE_VERSION="2.27.0" # 定义 Allure 版本作为构建参数
+ENV ALLURE_HOME="/opt/allure-${ALLURE_VERSION}" # 设置 Allure 的安装目录环境变量
+
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends unzip wget && \ # 安装 unzip 和 wget
+    mkdir -p /opt && \ # 创建 /opt 目录
+    wget https://github.com/allure-framework/allure-commandline/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.zip -O /tmp/allure.zip && \ # 下载 Allure 到 /tmp
+    unzip /tmp/allure.zip -d /opt && \ # 解压到 /opt
+    rm /tmp/allure.zip && \ # 删除下载的 zip 包
+    # 将 Allure 的 bin 目录添加到系统的 PATH 环境变量中，这样可以直接在命令行使用 'allure' 命令
+    # 方法1: 创建一个 symlink (推荐)
+    ln -s ${ALLURE_HOME}/bin/allure /usr/local/bin/allure
+
+
 # （可选）将 jenkins 用户添加到 docker 组，这样 jenkins 用户也能执行 docker 命令
 # 注意：这需要 docker 组存在，通常在安装 docker-ce 时创建，仅安装 cli 可能没有
 # 更好的做法是让 Pipeline 通过挂载的 socket 通信，执行者仍是 jenkins 用户，权限由 socket 控制
