@@ -18,7 +18,8 @@ pipeline {
                     image 'python:3.9-slim'
 
                     // 挂载工作区并设置工作目录为 /app，以 root 用户身份运行
-                    args "-v ${WORKSPACE}:/app -w /app -u root"
+                    args "-u root"
+                    args " -v ${WORKSPACE}:/app -w /app"
 
                     // 使用当前 Jenkins Workspace 作为容器内的工作目录，这是默认且推荐的
                     // 确保容器内的用户对这个目录有写权限
