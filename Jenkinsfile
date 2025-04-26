@@ -35,6 +35,9 @@ pipeline {
                 // 清理工作区中的 allure-results 和 allure-report 目录，新增
                 sh 'rm -rf allure-results allure-report'
 
+                // 验证一下删没删
+                sh 'ls -la'
+
 
 
                 echo "Installing dependencies..."
@@ -59,6 +62,8 @@ pipeline {
     post {
         always {
             echo 'Pipeline finished. Attempting to publish Allure report...'
+            sh 'pwd'
+            sh 'ls -la'
 
             // 这个 allure 步骤在默认 agent (any) 上执行
             // 它需要能够访问宿主机的 Jenkins Workspace，以及能够调用 Allure CLI (通过 Global Tool Config 或其他方式)
