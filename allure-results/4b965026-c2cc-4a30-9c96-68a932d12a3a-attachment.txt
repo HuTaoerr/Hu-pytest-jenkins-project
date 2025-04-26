@@ -1,0 +1,2 @@
+
+[Thread: MainThread] Running TestPostModification.test_delete_post

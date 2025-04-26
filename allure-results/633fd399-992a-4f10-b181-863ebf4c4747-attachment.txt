@@ -1,0 +1,2 @@
+
+[Thread: MainThread] Running test_get_all_posts_status_code
