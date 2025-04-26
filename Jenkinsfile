@@ -93,6 +93,10 @@ pipeline {
                 )
             }
 
+            // 在所有后置操作完成后清理工作区
+            echo 'Pipeline finished. Performing cleanup...'
+            cleanWs()
+
         }
         // 其他后置操作，例如 email 通知等...
         // success { echo 'Pipeline succeeded!' } // 这些会被顶层 post conditions 覆盖
