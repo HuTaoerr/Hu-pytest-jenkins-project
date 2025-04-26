@@ -1,120 +1,85 @@
-// Jenkinsfile - 使用顶层标签指定自定义 Docker Agent
+// Jenkinsfile
+# 使用 Stage 级别的 Docker Agent (优化 Allure Only)
 pipeline {
-    // **在顶层使用自定义 Agent 的标签**
-    // 'python-allure-agent' 是您在 Jenkins Docker Cloud 中为自定义镜像设置的标签
-    agent { label 'python-allure-agent' }
-
-    options {
-        // **如果希望 cleanWs() 在 checkout 之前，则继续使用 skipDefaultCheckout true**
-        // **否则，如果 cleanWs() 在 checkout 之后运行也可以接受，则可以移除 skipDefaultCheckout true**
-        // 对于新 Job 或确保干净，skipDefaultCheckout true + 显式 checkout 更好
-        skipDefaultCheckout true
-        // 其他 options...
-    }
-
-    environment {
-        ALLURE_RESULTS_DIR = 'allure-results'
-    }
+    // 默认 agent 为 any，允许 Jenkins 在任何可用节点上开始执行
+    agent any
 
     stages {
-        // 清理工作区 Stage
-        stage('Clean Workspace') {
+        stage('Checkout') {
             steps {
-                echo 'Cleaning workspace before starting...'
-                cleanWs() // 调用 cleanWs 步骤
+                echo 'Checking out code from GitHub...'
+                checkout scm
             }
         }
 
-        // 显式 Checkout 阶段 (因为上面使用了 skipDefaultCheckout true)
-        stage('Checkout Code') {
-             // 这个 Stage 在顶层 agent (python-allure-agent) 上运行
-            steps {
-                echo 'Checking out code after cleaning...'
-                checkout scm // 手动执行 Checkout
-            }
-        }
-
-        // 阶段: 构建和测试 (也在顶层 agent 容器中执行)
         stage('Build and Test') {
-            // **无需再次指定 agent { docker {...} }**
+            agent {
+                docker {
+                    image 'python:3.9-slim'
+
+                    // 挂载工作区并设置工作目录为 /app，以 root 用户身份运行
+                    args "-v ${WORKSPACE}:/app -w /app -u root"
+
+                    // 使用当前 Jenkins Workspace 作为容器内的工作目录，这是默认且推荐的
+                    // 确保容器内的用户对这个目录有写权限
+//                     args '-u root --entrypoint=' // 如果后续步骤需要 root 权限或遇到问题再尝试
+                }
+            }
             steps {
-                // 这些步骤将在顶层 agent (你的自定义容器) 中执行
-                echo "Running on custom agent: ${sh(script: 'hostname', returnStdout: true).trim()}"
-                echo "Working directory: ${sh(script: 'pwd', returnStdout: true).trim()}"
+                echo "Running inside Python container: ${sh(script: 'python --version', returnStdout: true).trim()}"
+                echo "Working directory inside container: ${sh(script: 'pwd', returnStdout: true).trim()}" // 显示当前工作目录 (容器内)
 
-                echo "Setting up Python environment and installing dependencies..."
-                // 由于自定义镜像有 python/venv 和 pip，可以直接用
-                sh '''
-                    python3 -m venv venv
-                    # 激活虚拟环境（在多行sh脚本中，source 不会影响后续独立的 sh 命令，
-                    # 但使用 venv/bin/... 路径更可靠）
-                    # source venv/bin/activate
+                // 清理工作区中的 allure-results 和 allure-report 目录，新增
+                sh 'rm -rf allure-results allure-report'
 
-                    # 使用虚拟环境中的pip安装依赖
-                    venv/bin/pip install --no-cache-dir -r requirements.txt
-                '''
 
+                echo "Installing dependencies..."
+                sh 'pip install --upgrade pip'
+                sh 'pip install -r requirements.txt --verbose'
+                sh 'pip list | grep allure-pytest || echo "allure-pytest not found in pip list"'
+
+                // 步骤 2.2: 运行 Pytest 测试并只生成 Allure 结果
                 echo 'Running Pytest with Allure results only...'
-                // 由于 allure-pytest 已安装，Allure CLI 在 PATH 中 (因为你的自定义镜像已设置)，可以直接用
-                sh "venv/bin/pytest tests/ --alluredir=${ALLURE_RESULTS_DIR}"
+                sh 'pytest --alluredir=allure-results'
 
-                // Debug: Check results
-                echo "Checking if ${ALLURE_RESULTS_DIR} directory exists on agent..."
-                sh "if [ -d ${ALLURE_RESULTS_DIR} ]; then echo '${ALLURE_RESULTS_DIR} directory found:'; ls -la ${ALLURE_RESULTS_DIR}/; else echo '${ALLURE_RESULTS_DIR} directory NOT found!'; fi"
+                // 步骤 2.3: (调试用) 检查 allure-results 是否生成在容器内
+                echo "Checking if allure-results directory exists INSIDE container..."
+                sh 'if [ -d allure-results ]; then echo "allure-results directory found:"; ls -la allure-results/; else echo "allure-results directory NOT found!"; fi'
 
-                // **无需 stash 步骤**，因为 post 块在同一个 agent 上执行，可以直接访问 Workspace
-                // echo "Stashing Allure results..."
-                // stash includes: "${ALLURE_RESULTS_DIR}/**", name: 'allure-results-stash'
+
+                // 在 Stage 结束时，allure-results 应该通过 Docker 卷挂载同步到宿主机的 Jenkins Workspace
             }
         }
-
-        // 你可以根据需要添加更多阶段，它们都会在这个自定义 agent 容器中执行
-        // stage('Deploy') {
-        //     steps {
-        //         // Deploy commands...
-        //     }
-        // }
     }
 
-    // 构建后操作 (也在顶层 agent 上执行)
     post {
         always {
-            echo 'Pipeline finished. Publishing Allure report...'
+            echo 'Pipeline finished. Attempting to publish Allure report...'
 
-            // **无需 unstash 步骤**
-            // try {
-            //     unstash 'allure-results-stash'
-            //     ...
-            // } catch (...) { ... }
-
-            // Publish Allure report using catchError
-            // 这个 allure() 步骤在与测试 Stage 相同的 agent 上执行
-            // 它可以直接访问 $WORKSPACE/${ALLURE_RESULTS_DIR}
-            // 并且 Allure CLI 在此 agent 上可用 (因为是自定义镜像的一部分)
+            // 这个 allure 步骤在默认 agent (any) 上执行
+            // 它需要能够访问宿主机的 Jenkins Workspace，以及能够调用 Allure CLI (通过 Global Tool Config 或其他方式)
+            // allure() 步骤会自动查找 allure-results 目录，并调用 Allure CLI 生成并展示报告
             catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
                 echo 'Attempting to publish Allure report...'
                 allure(
-                    results: [[path: env.ALLURE_RESULTS_DIR]] // 正确的语法
-                    // 其他参数...
+                    results: [[path: 'allure-results']], // 指向 pytest 生成的结果目录 (相对于 Workspace)
+                    reportBuildPolicy: 'ALWAYS', // 总是生成报告
                 )
             }
 
+
+            // 清理工作区（可选，会清理宿主机的 Workspace，包括 allure-results）
+            // 如果你希望构建历史保留报告，可能需要小心 cleanWs() 的位置或使用 archiveArtifacts
+
+            // 在所有后置操作完成后清理工作区
+//             echo 'Pipeline finished. Performing cleanup...'
+//             cleanWs()
         }
-        // 这些 post conditions 会在 'always' 块执行后，根据构建的最终状态触发
         success {
             echo 'Pipeline succeeded!'
         }
         failure {
             echo 'Pipeline failed!'
         }
-         unstable {
-            echo 'Pipeline is unstable (possibly due to test failures or report publishing issues)!'
-         }
-         aborted {
-            echo 'Pipeline was aborted!'
-         }
-         // 如果需要，可以添加其他条件，例如：
-         // fixed { echo 'Build is now fixed!' }
-         // changed { echo 'Build status changed!' }
     }
 }
