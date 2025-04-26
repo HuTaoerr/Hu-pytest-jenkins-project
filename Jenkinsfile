@@ -39,7 +39,6 @@ pipeline {
                 sh 'if [ -d allure-results ]; then echo "allure-results directory found:"; ls -la allure-results/; else echo "allure-results directory NOT found!"; fi'
 
 
-                sh 'allure generate ./allure-results -o ./allure-report --clean'
                 // 在 Stage 结束时，allure-results 应该通过 Docker 卷挂载同步到宿主机的 Jenkins Workspace
             }
         }
