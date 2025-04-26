@@ -64,8 +64,8 @@ pipeline {
             // 如果你希望构建历史保留报告，可能需要小心 cleanWs() 的位置或使用 archiveArtifacts
 
             // 在所有后置操作完成后清理工作区
-            echo 'Pipeline finished. Performing cleanup...'
-            cleanWs()
+//             echo 'Pipeline finished. Performing cleanup...'
+//             cleanWs()
         }
         success {
             echo 'Pipeline succeeded!'
