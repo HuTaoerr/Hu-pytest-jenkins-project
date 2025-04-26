@@ -1,77 +1,71 @@
-// Jenkinsfile
-// Jenkinsfile - 使用 Stage 级别的 Docker Agent (优化 Allure Only)
+// Jenkinsfile - 使用 stash/unstash 传递 Allure 结果
 pipeline {
-    // 默认 agent 为 any，允许 Jenkins 在任何可用节点上开始执行
-    agent any
+    agent any // post 块将在此 agent 上执行，需要在这里 unstash
+
+    environment {
+        ALLURE_RESULTS_DIR = 'allure-results'
+    }
 
     stages {
-        stage('Checkout') {
-            steps {
-                echo 'Checking out code from GitHub...'
-                checkout scm
-            }
-        }
+        // 删除显式 Checkout Stage
 
         stage('Build and Test') {
             agent {
                 docker {
                     image 'python:3.9-slim'
-                    // 使用当前 Jenkins Workspace 作为容器内的工作目录，这是默认且推荐的
-                    // 确保容器内的用户对这个目录有写权限
-                    args '-u root --entrypoint=' // 如果后续步骤需要 root 权限或遇到问题再尝试
+                    args '-u root'
                 }
             }
             steps {
                 echo "Running inside Python container: ${sh(script: 'python --version', returnStdout: true).trim()}"
-                echo "Working directory inside container: ${sh(script: 'pwd', returnStdout: true).trim()}" // 显示当前工作目录 (容器内)
+                echo "Working directory inside container: ${sh(script: 'pwd', returnStdout: true).trim()}"
 
                 echo "Installing dependencies..."
                 sh 'pip install --upgrade pip'
                 sh 'pip install -r requirements.txt --verbose'
                 sh 'pip list | grep allure-pytest || echo "allure-pytest not found in pip list"'
 
-                // 步骤 2.2: 运行 Pytest 测试并只生成 Allure 结果
                 echo 'Running Pytest with Allure results only...'
-                sh 'pytest --alluredir=allure-results'
+                sh "pytest --alluredir=${ALLURE_RESULTS_DIR}"
 
-                // 步骤 2.3: (调试用) 检查 allure-results 是否生成在容器内
-                echo "Checking if allure-results directory exists INSIDE container..."
-                sh 'if [ -d allure-results ]; then echo "allure-results directory found:"; ls -la allure-results/; else echo "allure-results directory NOT found!"; fi'
+                echo "Checking if ${ALLURE_RESULTS_DIR} directory exists INSIDE container..."
+                sh "if [ -d ${ALLURE_RESULTS_DIR} ]; then echo '${ALLURE_RESULTS_DIR} directory found:'; ls -la ${ALLURE_RESULTS_DIR}/; else echo '${ALLURE_RESULTS_DIR} directory NOT found!'; fi"
 
-
-                // 在 Stage 结束时，allure-results 应该通过 Docker 卷挂载同步到宿主机的 Jenkins Workspace
+                // **新增: Stash Allure results**
+                echo "Stashing Allure results..."
+                stash includes: "${ALLURE_RESULTS_DIR}/**", name: 'allure-results'
+                // 'name' 参数给 stash 起个名字，在 unstash 时使用
             }
         }
     }
 
     post {
         always {
-            echo 'Pipeline finished. Attempting to publish Allure report...'
+            echo 'Pipeline finished. Unstashing and Publishing Allure report...'
 
-            // 这个 allure 步骤在默认 agent (any) 上执行
-            // 它需要能够访问宿主机的 Jenkins Workspace，以及能够调用 Allure CLI (通过 Global Tool Config 或其他方式)
-            // allure() 步骤会自动查找 allure-results 目录，并调用 Allure CLI 生成并展示报告
-            catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                echo 'Attempting to publish Allure report...'
-                allure(
-                    results: [[path: 'allure-results']], // 指向 pytest 生成的结果目录 (相对于 Workspace)
-                    reportBuildPolicy: 'ALWAYS', // 总是生成报告
-                )
+            // **新增: Unstash Allure results**
+            // 这个步骤在默认 agent (any) 上执行
+            try {
+                unstash 'allure-results' // 解包之前 stash 的文件到当前 Workspace
+                echo "Unstashed Allure results to ${sh(script: 'pwd', returnStdout: true).trim()}"
+                sh "if [ -d ${ALLURE_RESULTS_DIR} ]; then echo '${ALLURE_RESULTS_DIR} directory found after unstash:'; ls -la ${ALLURE_RESULTS_DIR}/; else echo '${ALLURE_RESULTS_DIR} directory NOT found after unstash!'; fi"
+
+                // 尝试发布 Allure 报告
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    echo 'Attempting to publish Allure report using corrected syntax...'
+                    // Allure Step 现在可以在默认 agent 的 Workspace 中找到 unstash 的结果文件
+                    allure(
+                        results: [[path: env.ALLURE_RESULTS_DIR]]
+                    )
+                }
+            } catch (Exception e) {
+                echo "Error unstashing or publishing Allure report: ${e}"
+                // 可以选择标记构建不稳定
+                currentBuild.result = 'UNSTABLE'
             }
 
-
-            // 清理工作区（可选，会清理宿主机的 Workspace，包括 allure-results）
-            // 如果你希望构建历史保留报告，可能需要小心 cleanWs() 的位置或使用 archiveArtifacts
-
-            // 在所有后置操作完成后清理工作区
-//             echo 'Pipeline finished. Performing cleanup...'
-//             cleanWs()
         }
-        success {
-            echo 'Pipeline succeeded!'
-        }
-        failure {
-            echo 'Pipeline failed!'
-        }
+        success { echo 'Pipeline succeeded!' }
+        failure { echo 'Pipeline failed!' }
     }
 }
