@@ -18,6 +18,8 @@ pipeline {
                     image 'python:3.9-slim'
 
                     // 挂载工作区并设置工作目录为 /app，以 root 用户身份运行
+                    echo "lalala"
+                    echo "${WORKSPACE}"
                     args "-v ${WORKSPACE}:/app -w /app -u root"
 
                     // 使用当前 Jenkins Workspace 作为容器内的工作目录，这是默认且推荐的
@@ -32,13 +34,9 @@ pipeline {
                 sh 'echo "Listing files after Checkout:"'
                 sh 'ls -la'
                 sh 'pwd' // 这个 pwd 会显示容器内当前的工作目录，即 Workspace 挂载点
-                // 清理工作区中的 allure-results 和 allure-report 目录，新增
+
+                // 清理工作区中的 allure-results 和 allure-report 目录，验证过了确实删除了
                 sh 'rm -rf allure-results allure-report'
-
-                // 验证一下删没删
-                sh 'ls -la'
-
-
 
                 echo "Installing dependencies..."
                 sh 'pip install --upgrade pip'
@@ -64,6 +62,9 @@ pipeline {
             echo 'Pipeline finished. Attempting to publish Allure report...'
             sh 'pwd'
             sh 'ls -la'
+            args '-u root --entrypoint='
+            sh 'rm -rf allure-results allure-report && cp -rf ../my-pytest-ci-job@2 .'
+
 
             // 这个 allure 步骤在默认 agent (any) 上执行
             // 它需要能够访问宿主机的 Jenkins Workspace，以及能够调用 Allure CLI (通过 Global Tool Config 或其他方式)
