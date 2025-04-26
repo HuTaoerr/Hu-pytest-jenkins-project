@@ -28,7 +28,6 @@ pipeline {
             steps {
                 echo "Running inside Python container: ${sh(script: 'python --version', returnStdout: true).trim()}"
                 echo "Working directory inside container: ${sh(script: 'pwd', returnStdout: true).trim()}" // 显示当前工作目录 (容器内)
-                echo "${WORKSPACE}"
 
                 sh 'echo "Listing files after Checkout:"'
                 sh 'ls -la'
@@ -61,7 +60,6 @@ pipeline {
             echo 'Pipeline finished. Attempting to publish Allure report...'
             sh 'pwd'
             sh 'ls -la'
-            args '-u root --entrypoint='
             sh 'rm -rf allure-results allure-report && cp -rf ../my-pytest-ci-job@2 .'
 
 
