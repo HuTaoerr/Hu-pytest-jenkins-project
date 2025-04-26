@@ -75,4 +75,3 @@ pipeline {
         }
         unstable { echo 'Pipeline is unstable!' }
     }
-}
