@@ -12,7 +12,12 @@ RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
     lsb-release \
-    sudo
+    sudo \
+    python3 \
+    python3-pip \
+    python3-venv \
+    git \
+    openjdk-11-jre
 
 # 添加 Docker 的官方 GPG 密钥
 RUN mkdir -p /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
