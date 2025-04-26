@@ -6,11 +6,17 @@ git push origin master
 docker stop myjenkins
 docker rm myjenkins
 
-docker run \
-  -d \
-  -p 8100:8080 \
-  -p 50000:50000 \
-  --name myjenkins \
+#docker run \
+#  -d \
+#  -p 8100:8080 \
+#  -p 50000:50000 \
+#  --name myjenkins \
+#  -v jenkins_home:/var/jenkins_home \
+#  -v /var/run/docker.sock:/var/run/docker.sock \
+#  myjenkins-with-docker-cli
+
+docker run -d -p 8080:8080 -p 50000:50000 \
+  --name jenkins \
   -v jenkins_home:/var/jenkins_home \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  myjenkins-with-docker-cli
+  jenkins/jenkins:lts
