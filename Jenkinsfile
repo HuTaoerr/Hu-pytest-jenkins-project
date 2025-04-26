@@ -18,8 +18,6 @@ pipeline {
                     image 'python:3.9-slim'
 
                     // 挂载工作区并设置工作目录为 /app，以 root 用户身份运行
-                    echo "lalala"
-                    echo "${WORKSPACE}"
                     args "-v ${WORKSPACE}:/app -w /app -u root"
 
                     // 使用当前 Jenkins Workspace 作为容器内的工作目录，这是默认且推荐的
@@ -30,6 +28,7 @@ pipeline {
             steps {
                 echo "Running inside Python container: ${sh(script: 'python --version', returnStdout: true).trim()}"
                 echo "Working directory inside container: ${sh(script: 'pwd', returnStdout: true).trim()}" // 显示当前工作目录 (容器内)
+                echo "${WORKSPACE}"
 
                 sh 'echo "Listing files after Checkout:"'
                 sh 'ls -la'
