@@ -1,5 +1,5 @@
 // Jenkinsfile
-# 使用 Stage 级别的 Docker Agent (优化 Allure Only)
+// 使用 Stage 级别的 Docker Agent (优化 Allure Only)
 pipeline {
     // 默认 agent 为 any，允许 Jenkins 在任何可用节点上开始执行
     agent any
