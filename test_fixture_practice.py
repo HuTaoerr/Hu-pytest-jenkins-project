@@ -105,7 +105,7 @@ def test_create_post(base_url, title, body, userId, common_headers):
 
 
 # 4. 测试 PUT /posts/{id} (完整更新帖子)
-@pytest.mark.skip
+@pytest.mark.skip(reason="此测试用例被标记为无条件跳过，还没调试好")
 def test_update_post_put(base_url, common_headers):
     """测试 PUT 方法完整更新一个帖子"""
     put_id = 101
